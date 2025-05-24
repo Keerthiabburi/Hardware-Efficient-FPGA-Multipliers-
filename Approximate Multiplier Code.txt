@@ -1,0 +1,70 @@
+Approximate Multiplier Code
+Verilog Code
+`timescale 1ns / 1ps
+module pro_app_multiplier #(
+parameter TRUNC_BITS = 8
+)(
+ input [9:0] A,
+ input [9:0] B,
+ output [19:0] P
+);
+ wire [9:0] pp [0:9];
+ reg [19:0] compensation;
+ integer i;
+ integer j;
+ genvar m;
+ generate
+ for (m = 0; m < 10; m = m + 1) begin: gen_pp_rows
+ assign pp[m] = A & {10{B[m]}};
+ end
+ endgenerate
+ reg [19:0] approx_sum;
+ always @(*) begin
+ approx_sum = 0;
+ for (i = 0; i < 10; i = i + 1) begin
+ approx_sum = approx_sum + (pp[i] << i); 
+end
+ end
+ wire [19:0] truncated_sum = {approx_sum[19:TRUNC_BITS],
+{TRUNC_BITS{1'b0}}};
+ always @(*) begin
+ compensation = 0;
+ for (j = 0; j < 4; j = j + 1) begin
+ if (pp[j][9]) begin
+ compensation = compensation + (1 << 9);
+ end
+ end
+ compensation = (compensation * 256) / 384;
+ end
+ assign P = truncated_sum + compensation;
+endmodule
+
+Testbench:
+`timescale 1ns / 1ps
+module tb_pro_app_multiplier;
+ reg [9:0] A;
+ reg [9:0] B;
+ wire [19:0] P;
+ pro_app_multiplier #(
+ .TRUNC_BITS(8)
+ ) uut (
+ .A(A),
+.B(B),
+ .P(P)
+ );
+ initial begin
+ $monitor("Time = %0t | A = %d, B = %d, P = %d", $time, A, B, P);
+ end
+ initial
+ begin
+ A = 10'd1; B = 10'd1;
+ #10;
+ A = 10'd41; B = 10'd28;
+ #10;
+ A = 10'd23; B = 10'd18;
+ #10;
+ A = 10'd48; B = 10'd19;
+ #10;
+ $finish;
+ end
+endmodule
